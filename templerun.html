@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Temple Run Style Game</title>
+  <style>
+    body { margin: 0; overflow: hidden; background: #87ceeb; }
+    canvas { display: block; margin: 0 auto; background: linear-gradient(#87ceeb, #228B22); }
+  </style>
+</head>
+<body>
+  <canvas id="gameCanvas" width="800" height="400"></canvas>
+  <script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+
+    // Load images (you can replace these URLs with your own)
+    const playerImg = new Image();
+    playerImg.src = "https://images.pexels.com/photos/1288182/pexels-photo-1288182.jpeg?cs=srgb&dl=pexels-jc-laurio-1288182.jpg&fm=jpg"; // Placeholder: boy running
+    const dogImg = new Image();
+    dogImg.src = "https://th.bing.com/th/id/OIP.f0xXMjhg0yldI2VH8yte5wHaE7?w=269&h=180&c=7&r=0&o=7&dpr=1.4&pid=1.7&rm=3"; // Placeholder: dog
+    const rootImg = new Image();
+    rootImg.src = "https://th.bing.com/th/id/R.bed8cf2192c9f405e17dae3368572edd?rik=N0lel6cspiDX5Q&pid=ImgRaw&r=0"; // Placeholder: root
+    const branchImg = new Image();
+    branchImg.src = "https://tse3.mm.bing.net/th/id/OIP.cvrtdFysq8cNcp0m8ELCAgHaJ4?pid=ImgDet&w=195&h=259&c=7&dpr=1.4&o=7&rm=3"; // Placeholder: branch
+
+    // Player state
+    let player = { x: 100, y: 300, width: 50, height: 80, vy: 0, jumping: false, sliding: false };
+    let dog = { x: 30, y: 300, width: 60, height: 60 };
+    let gravity = 0.8;
+    let obstacles = [];
+    let gameOver = false;
+    let score = 0;
+
+    function createObstacle() {
+      const type = Math.random() < 0.5 ? "root" : "branch";
+      const obs = {
+        x: canvas.width + 50,
+        y: type === "root" ? 320 : 220,
+        width: type === "root" ? 50 : 60,
+        height: type === "root" ? 40 : 40,
+        type: type
+      };
+      obstacles.push(obs);
+    }
+
+    document.addEventListener("keydown", (e) => {
+      if (e.code === "ArrowLeft") player.x -= 30;
+      if (e.code === "ArrowRight") player.x += 30;
+      if (e.code === "ArrowUp" || e.code === "Space") {
+        if (!player.jumping && !player.sliding) {
+          player.vy = -15;
+          player.jumping = true;
+        }
+      }
+      if (e.code === "ArrowDown") {
+        if (!player.jumping) {
+          player.sliding = true;
+          player.height = 40; // slide lower
+          setTimeout(() => {
+            player.sliding = false;
+            player.height = 80;
+          }, 1000);
+        }
+      }
+    });
+
+    function update() {
+      // Gravity
+      player.y += player.vy;
+      player.vy += gravity;
+      if (player.y >= 300) {
+        player.y = 300;
+        player.vy = 0;
+        player.jumping = false;
+      }
+
+      // Move obstacles
+      obstacles.forEach(obs => obs.x -= 5);
+
+      // Remove old obstacles
+      obstacles = obstacles.filter(obs => obs.x + obs.width > 0);
+
+      // Dog movement
+      if (dog.x < player.x - 50) {
+        dog.x += 2.5; // Dog chases
+      }
+
+      // Check collisions
+      for (let obs of obstacles) {
+        if (
+          player.x < obs.x + obs.width &&
+          player.x + player.width > obs.x &&
+          player.y < obs.y + obs.height &&
+          player.y + player.height > obs.y
+        ) {
+          if (obs.type === "root" && !player.jumping) {
+            gameOver = true;
+          }
+          if (obs.type === "branch" && !player.sliding) {
+            gameOver = true;
+          }
+        }
+      }
+
+      // Check dog catch
+      if (dog.x + dog.width > player.x) {
+        gameOver = true;
+      }
+
+      // Score
+      score++;
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Draw ground line
+      ctx.fillStyle = "#654321";
+      ctx.fillRect(0, 380, canvas.width, 20);
+
+      // Draw player
+      ctx.drawImage(playerImg, player.x, player.y, player.width, player.height);
+
+      // Draw dog
+      ctx.drawImage(dogImg, dog.x, dog.y + 20, dog.width, dog.height);
+
+      // Draw obstacles
+      for (let obs of obstacles) {
+        if (obs.type === "root") {
+          ctx.drawImage(rootImg, obs.x, obs.y, obs.width, obs.height);
+        } else {
+          ctx.drawImage(branchImg, obs.x, obs.y, obs.width, obs.height);
+        }
+      }
+
+      // Score
+      ctx.fillStyle = "white";
+      ctx.font = "20px Arial";
+      ctx.fillText("Score: " + score, 10, 30);
+    }
+
+    function loop() {
+      if (!gameOver) {
+        update();
+        draw();
+        requestAnimationFrame(loop);
+      } else {
+        ctx.fillStyle = "red";
+        ctx.font = "40px Arial";
+        ctx.fillText("Game Over!", canvas.width / 2 - 100, canvas.height / 2);
+        ctx.font = "20px Arial";
+        ctx.fillText("Press R to Restart", canvas.width / 2 - 80, canvas.height / 2 + 40);
+      }
+    }
+
+    document.addEventListener("keydown", (e) => {
+      if (e.code === "KeyR" && gameOver) {
+        // Restart
+        player.x = 100;
+        player.y = 300;
+        dog.x = 30;
+        obstacles = [];
+        score = 0;
+        gameOver = false;
+        loop();
+      }
+    });
+
+    // Spawn obstacles every 2 seconds
+    setInterval(() => {
+      if (!gameOver) {
+        createObstacle();
+      }
+    }, 2000);
+
+    loop();
+  </script>
+</body>
+</html>
